@@ -6,28 +6,34 @@ namespaces:
   cloudwatchNs:
     enabled: false
     name: amazon-cloudwatch
-  externaldnsNs: nexus-externaldns
+  externaldnsNs: nexusrepo
 serviceAccount:
-  enabled: false
+  enabled: true    #change to true 2024-01-11, enable the service account, by default it's false, it should be true to use the service account
   name: nexus-repository-deployment-sa #This service account in managed by Helm
   annotations:
     # Set annotations for service account. E.g. if deploying to AWS EKS
     # and secrets manager is enabled then this role should have permissions for using secret manager.
     # If using externaldns, role with route53 permissions needed by external-dns
-    # eks.amazonaws.com/role-arn: arn:aws:iam::000000000000:role/nxrm-nexus-role
+    eks.amazonaws.com/role-arn: arn:aws:iam::497919687739:role/test-dqiu-service-account-role  #dqiu 2024-01-11 uncomment this one to assign the role for serviceaccount
 azure:
   enabled: false  #set to true to enable azure specific yamls/snippets
   keyvault:
     enabled: false # set to true to pull license, db and nexus admin password secrets from azure key vault
 aws:
-  enabled: false #set to true to enable aws specific yamls like external dns and fluent bit
-  clusterRegion: us-east-1
+  #dqiu 2024-01-11 set to true to enable aws
+  enabled: true #set to true to enable aws specific yamls like external dns and fluent bit
+  #dqiu 2024-01-11 cluster region is ca-central-1
+  clusterRegion: ca-central-1
+  #dqiu 2024-01-11 enable the secretemanager for aws
   secretmanager:
-    enabled: false # set to true to pull license, db and nexus admin password secrets from aws secret manager
+    enabled: true # set to true to pull license, db and nexus admin password secrets from aws secret manager
   externaldns:
-    enabled: false
-    domainFilter: example.com #your root domain e.g example.com
-    awsZoneType: private # hosted zone to look at (valid values are public, private or no value for both)
+    #dqiu 2024-01-11 enable external dns 
+    enabled: true
+    #dqiu 2024-01-11 the domain should be the hosted zone name in Route 53
+    domainFilter: coding4fun.ca #your root domain e.g example.com
+    #dqiu 2024-01-11 the type is public as the type of the hosted zone in Route 53
+    awsZoneType: public # hosted zone to look at (valid values are public, private or no value for both)
   fluentbit:
     enabled: false #set this to true to enable sending of logs to CloudWatch
     fluentBitVersion: 2.28.0
@@ -35,7 +41,7 @@ aws:
 statefulset:
   name: nxrm-statefulset
   serviceName: nxrm-statefulset-service
-  replicaCount: 3
+  replicaCount: 2
   clustered: true
   additionalVolumes:
   additionalVolumeMounts:
@@ -89,14 +95,14 @@ statefulset:
   container:
     image:
       repository: sonatype/nexus3
-      tag: latest
+      tag: 3.64.0
     resources:
       # See help documentation, these are minimum system requirements
       requests:
-        cpu: 4
+        cpu: 2
         memory: "8Gi"
       limits:
-        cpu: 4
+        cpu: 2
         memory: "8Gi"
     containerPort: 8081
     pullPolicy: IfNotPresent
@@ -152,13 +158,17 @@ statefulset:
   imagePullSecrets: {}
 ingress:
   name: "nexus-ingress"
-  enabled: false
-  host: null #host to apply this ingress rule to e.g. example.com. Set it as you wish
+  #dqiu 2024-01-11 enable the ingress
+  enabled: true
+  #dqiu 2024-01-11 host should be the 
+  host: nexus.coding4fun.ca #host to apply this ingress rule to e.g. example.com. Set it as you wish
   hostPath: /
-  dockersubdomain: false # uncomment this if you'd like to create a wildcard rule in your ingress for docker sub domain routing. This will result in the creation of routing rules in your load balancer for sub domains of your host. Thus, you must also set the host
-  defaultRule: false
+  dockersubdomain: true # uncomment this if you'd like to create a wildcard rule in your ingress for docker sub domain routing. This will result in the creation of routing rules in your load balancer for sub domains of your host. Thus, you must also set the host
+  #dqiu 2024-01-11 need to set to true to populate the rule
+  defaultRule: true
   additionalRules: null
-  ingressClassName: null # e.g. nginx, alb
+  #dqiu 2024-01-11 ingress class name is alb
+  ingressClassName: alb # e.g. nginx, alb
 #  tls:
 #    - secretName: "tlsSecretName1"
 #      hosts:
@@ -171,16 +181,19 @@ ingress:
   annotations:
 #  Note: the annotations below are just a guide; delete or insert more as needed depending on your use case: aws, azure, on prem
 #    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-#    alb.ingress.kubernetes.io/scheme: internal # scheme
+    #dqiu 2024-01-11 use internet-facing for test
+    alb.ingress.kubernetes.io/scheme: internet-facing # scheme
+    alb.ingress.kubernetes.io/tags: Environment=test,Team=Support,Owner=dqiu@sonatype.com
 #    alb.ingress.kubernetes.io/subnets: subnet-1,subnet-2 #comma separated list of subnet ids
     # alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
     # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:0000000000000:certificate/00000000-1111-2222-3333-444444444444  # The AWS Certificate Manager ARN for your HTTPS certificate
 #    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:0000000000000:certificate/00000000-1111-2222-3333-444444444444  # Comment out if you don't use docker repositories - The AWS Certificate Manager ARN for your HTTPS certificate
-#    external-dns.alpha.kubernetes.io/hostname: dockerrepo1.example.com, dockerrepo2.example.com, dockerrepo3.example.com
+    external-dns.alpha.kubernetes.io/hostname: dockerrepo1.nexus.coding4fun.ca,dockerrepo2.nexus.coding4fun.ca
 storageClass:
   enabled: false # For built-in storage class, set storageClass.enabled to false
   name: nexus-storage # For built-in storage class, set storageClass.enabled to false and specify the name of the built-in storage class here e.g. managed-csi for AKS
-  provisioner: provisionerName # To use your own storage class set storageClass.enabled to true and specify provisioner. E.g. for AKS use managed-csi. For AWS EKS: ebs.csi.aws.com. In case of AWS EKS cluster running version less than 1.23 use 'kubernetes.io/aws-ebs'
+  #dqiu 2024-01-11 provisoner is ebs
+  provisioner: ebs.csi.aws.com # To use your own storage class set storageClass.enabled to true and specify provisioner. E.g. for AKS use managed-csi. For AWS EKS: ebs.csi.aws.com. In case of AWS EKS cluster running version less than 1.23 use 'kubernetes.io/aws-ebs'
   volumeBindingMode: "WaitForFirstConsumer"
   reclaimPolicy: Retain
 #  parameters:
@@ -197,26 +210,28 @@ pvc:
 service:  #Nexus Repo NodePort Service
   annotations: {}
   nexus:
-    enabled: false
+    #dqiu 2024-01-11 must enable this one
+    enabled: true
     type: NodePort
     protocol: TCP
     port: 80
     targetPort: 8081
 secret:
-  secretProviderClass: "secretProviderClass"
-  provider: provider # e.g. aws, azure etc
+  secretProviderClass: "nexus-secrete-providerclass"
+  #dqiu 2024-01-11 provider is aws
+  provider: aws # e.g. aws, azure etc
   dbSecret:
     enabled: false # Enable to apply database-secret.yaml which allows you to specify db credentials
   db:
-    user: nxrm-db-user
-    userAlias: nxrm-db-user-alias
-    password: nxrm-db-password
-    passwordAlias: nxrm-db-password-alias
-    host: nxrm-db-host
-    hostAlias: nxrm-db-host-alias
+    user: username
+    userAlias: nxrm-db-user
+    password: password
+    passwordAlias: nxrm-db-password
+    host: host
+    hostAlias: nxrm-db-host
   nexusAdmin:
-    name: "nexusAdminPassword"
-    alias: "admin-nxrm-password-alias"
+    name: "admin_nxrm_password"
+    alias: "admin-nxrm-password"
   nexusAdminSecret:
     enabled: false # Enable to apply nexus-admin-secret.yaml which allows you to the initial admin password for nexus repository
     adminPassword: yourinitialnexuspassword #You should change this when you login for the first time
@@ -236,11 +251,12 @@ secret:
     usePodIdentity: false
   aws:
     license:
-      arn: arn:aws:secretsmanager:us-east-1:000000000000:secret:nxrm-nexus-license
+      # dqiu 2024-01-11
+      arn: arn:aws:secretsmanager:ca-central-1:497919687739:secret:nxrm-license-p9wVVT
     adminpassword:
-      arn: arn:aws:secretsmanager:us-east-1:000000000000:secret:admin-nxrm-password
+      arn: arn:aws:secretsmanager:ca-central-1:497919687739:secret:nxrm-admin-init-cred-MkELHq
     rds:
-      arn: arn:aws:secretsmanager:us-east-1:000000000000:secret:nxrmrds-cred-nexus
+      arn: arn:aws:secretsmanager:ca-central-1:497919687739:secret:nxrm-rds-cred-nexus-VYJnso
 nexus:
   # Default the pods UID and GID to match the nexus3 container.
   # Customize or remove these values from the securityContext as appropriate for
@@ -252,15 +268,20 @@ nexus:
     data: null # specify a list of key and values to override default nexus.properties
   extraLabels: {}
   extraSelectorLabels: {}
+  #dqiu 2024-01-11 set to true
   docker:
     enabled: false
     type: NodePort
     protocol: TCP
-  # registries:
-  #   - host: chart.local
-  #     port: 5000
-  #     secretName: registry-secret
-  #     targetPort: 8081
+    registries:
+      - host: docker1.nexus.coding4fun.ca
+        port: 18079
+        secretName: registry-secret
+        targetPort: 18079
+      - host: docker2.nexus.coding4fun.ca
+        port: 18080
+        secretName: registry-secret
+        targetPort: 18080
 
 # Enable configmap and add arbitrary data in configmap
 config:
