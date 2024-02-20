@@ -12,12 +12,12 @@ kind: Namespace
 metadata:
   name: {{ .Values.namespaces.cloudwatchNs.name }}
 {{- end }}
----
-{{- if .Values.aws.externaldns.enabled }}
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: {{ .Values.namespaces.externaldnsNs }}
-{{- end }}
+# ---
+# {{- if .Values.aws.externaldns.enabled }}
+# apiVersion: v1
+# kind: Namespace
+# metadata:
+#   name: {{ .Values.namespaces.externaldnsNs }}
+# {{- end }}
 ---
 {{- end }}

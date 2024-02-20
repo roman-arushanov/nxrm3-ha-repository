@@ -100,10 +100,10 @@ statefulset:
       # See help documentation, these are minimum system requirements
       requests:
         cpu: 2
-        memory: "8Gi"
+        memory: "4Gi"
       limits:
         cpu: 2
-        memory: "8Gi"
+        memory: "4Gi"
     containerPort: 8081
     pullPolicy: IfNotPresent
     terminationGracePeriod: 120
