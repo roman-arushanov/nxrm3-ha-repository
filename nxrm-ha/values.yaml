@@ -2,7 +2,7 @@
 namespaces:
   nexusNs:
     enabled: true
-    name: "nexusrepo"
+    name: "nexus"
   cloudwatchNs:
     enabled: false
     name: amazon-cloudwatch
